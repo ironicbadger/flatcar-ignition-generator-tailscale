@@ -1,12 +1,12 @@
-# Easy Tailscale Server
+# Tailscale Server Builder
 
 Generate Flatcar Ignition userdata for a small Tailscale exit node or subnet router. No build step, no provider API keys, or no local tooling required.
 
-[Open the app](https://ironicbadger.github.io/flatcar-ignition-generator-tailscale/)
+[Open the app](https://ironicbadger.github.io/easy-tailscale-server/)
 
-![Easy Tailscale Server screenshot](assets/screenshot.png)
+![Tailscale Server screenshot](assets/screenshot.png)
 
-## Use
+## Usage
 
 1. Create a Tailscale auth key in [Tailscale Settings > Keys](https://login.tailscale.com/admin/settings/keys).
 2. Open the app and paste the auth key.
