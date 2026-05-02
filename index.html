@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Generate Flatcar Ignition userdata for a small Tailscale exit node or subnet router."
+    >
+    <meta name="theme-color" content="#171a21">
+    <title>Easy Tailscale Server</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="dot-logo" aria-hidden="true">
+            <span></span><span></span><span></span>
+            <span></span><span></span><span></span>
+            <span></span><span></span><span></span>
+          </span>
+          <span>
+            <strong>Tailscale Server Builder</strong>
+            <small>
+              <a href="https://www.flatcar.org/docs/latest/provisioning/ignition/" target="_blank" rel="noopener noreferrer">Flatcar Linux</a>
+              needs first-boot Ignition userdata. This browser tool generates it and configures Tailscale as an
+              <a href="https://tailscale.com/kb/1103/exit-nodes" target="_blank" rel="noopener noreferrer">exit node</a>.
+            </small>
+          </span>
+        </div>
+        <div class="topbar-actions">
+          <a href="https://login.tailscale.com/admin" target="_blank" rel="noopener noreferrer">Tailscale admin</a>
+          <button id="theme-toggle" class="quiet icon-button" type="button" aria-label="Switch to light mode" title="Switch to light mode">
+            <svg class="theme-icon theme-icon-sun" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path>
+              <path d="M12 20v2"></path>
+              <path d="m4.93 4.93 1.41 1.41"></path>
+              <path d="m17.66 17.66 1.41 1.41"></path>
+              <path d="M2 12h2"></path>
+              <path d="M20 12h2"></path>
+              <path d="m6.34 17.66-1.41 1.41"></path>
+              <path d="m19.07 4.93-1.41 1.41"></path>
+            </svg>
+            <svg class="theme-icon theme-icon-moon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 7 7 0 1 0 20.5 14.5Z"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <div class="workspace">
+          <section class="panel config-panel" aria-labelledby="configure-title">
+            <div class="panel-heading">
+              <div>
+                <h1 id="configure-title">Server settings</h1>
+                <p>Paste a Tailscale auth key, choose a provider, then copy the Ignition config.</p>
+              </div>
+              <span id="readiness" class="pill warn" role="status" aria-live="polite">Tailscale key required</span>
+            </div>
+
+            <form id="config-form" autocomplete="off">
+              <fieldset class="provider-field">
+                <legend>Provider</legend>
+                <select id="provider" name="provider" aria-label="Cloud provider">
+                  <option value="vultr" selected>Vultr</option>
+                  <option value="digitalocean">DigitalOcean</option>
+                  <option value="hetzner">Hetzner</option>
+                </select>
+              </fieldset>
+
+              <label class="field auth-field">
+                <span class="field-label">
+                  <span>
+                    Tailscale Auth Key
+                    <span class="label-separator">-</span>
+                    <a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer">Get Auth Key</a>
+                  </span>
+                </span>
+                <input
+                  id="auth-key"
+                  name="authKey"
+                  type="password"
+                  placeholder="tskey-auth-..."
+                  autocomplete="off"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
+                  aria-describedby="auth-key-error"
+                  required
+                >
+                <small id="auth-key-error" class="field-error" aria-hidden="true">Paste the full reusable auth key from Tailscale.</small>
+              </label>
+
+              <label class="field device-field">
+                <span>Device name</span>
+                <input
+                  id="hostname"
+                  name="hostname"
+                  type="text"
+                  value="tailnet-server"
+                  maxlength="63"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
+                  required
+                >
+              </label>
+
+              <details class="provider-note">
+                <summary>Which provider should I pick?</summary>
+                <dl>
+                  <div>
+                    <dt>Vultr</dt>
+                    <dd>Lowest friction because Flatcar is selectable when creating a server.</dd>
+                  </div>
+                  <div>
+                    <dt>DigitalOcean</dt>
+                    <dd>Good if you already use it, but you need to import a Flatcar custom image first.</dd>
+                  </div>
+                  <div>
+                    <dt>Hetzner</dt>
+                    <dd>Often cost-effective, especially in Europe, but setup is more involved and starts with a snapshot.</dd>
+                  </div>
+                </dl>
+              </details>
+
+              <fieldset class="feature-field">
+                <legend>Tailscale features</legend>
+                <div class="feature-list">
+                  <label class="check-row">
+                    <input id="feature-exit-node" name="exitNode" type="checkbox" checked>
+                    <span>
+                      <strong>Exit node</strong>
+                      <small>Route device internet traffic through this server.</small>
+                    </span>
+                  </label>
+                  <label class="check-row">
+                    <input id="feature-subnet-router" name="subnetRouter" type="checkbox">
+                    <span>
+                      <strong>Subnet router</strong>
+                      <small>Advertise a LAN route like 192.168.1.0/24.</small>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <label class="field subnet-field is-hidden" id="subnet-field">
+                <span>Subnet CIDR</span>
+                <input
+                  id="subnet-routes"
+                  name="subnetRoutes"
+                  type="text"
+                  placeholder="192.168.1.0/24"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
+                  aria-describedby="subnet-help subnet-error"
+                >
+                <small id="subnet-help">Use commas for more than one route.</small>
+                <small id="subnet-error" class="field-error" aria-hidden="true">Enter CIDR routes like 192.168.1.0/24.</small>
+              </label>
+
+            </form>
+          </section>
+
+          <section class="panel output-panel" aria-labelledby="output-title">
+            <div class="panel-heading output-heading">
+              <div>
+                <h2 id="output-title">Generated output</h2>
+                <p>Copy is the usual path. Download only if the provider asks for a file.</p>
+              </div>
+            </div>
+
+            <div id="image-card" class="subpanel image-card">
+              <div>
+                <p class="label">Flatcar image</p>
+                <code id="image-url">Built in on Vultr</code>
+              </div>
+              <button id="copy-image-url" type="button">Copy</button>
+            </div>
+
+            <div class="action-row">
+              <button id="copy-ignition" class="success" type="button">Copy Ignition</button>
+              <button id="download-ignition" class="quiet" type="button">Download .ign</button>
+            </div>
+
+            <div id="ignition-preview-panel" class="subpanel preview-panel">
+              <div class="preview-header">
+                <p class="label">Ignition preview</p>
+                <div class="preview-actions">
+                  <span id="ignition-size" class="pill">0 KB</span>
+                  <button
+                    id="toggle-ignition-preview"
+                    class="quiet compact"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="ignition-preview"
+                  >
+                    Expand
+                  </button>
+                </div>
+              </div>
+              <pre id="ignition-preview" class="code-preview" role="textbox" aria-label="Ignition JSON preview" aria-readonly="true" tabindex="0"></pre>
+            </div>
+
+            <div class="subpanel steps-panel">
+              <p class="label">Provider steps</p>
+              <ol id="provider-steps"></ol>
+              <div class="provider-links" id="provider-links"></div>
+            </div>
+          </section>
+
+          <section class="panel utility-panel" aria-labelledby="policy-title">
+            <details class="panel-details">
+              <summary>
+                <span>
+                  <span class="eyebrow">Optional</span>
+                  <strong id="policy-title">Tailnet policy helper</strong>
+                </span>
+              </summary>
+              <div class="utility-body">
+                <div class="utility-controls">
+                  <label class="field">
+                    <span>Tailscale account email</span>
+                    <input
+                      id="tailnet-email"
+                      name="tailnetEmail"
+                      type="email"
+                      placeholder="you@example.com"
+                      autocomplete="email"
+                      autocapitalize="none"
+                      autocorrect="off"
+                      spellcheck="false"
+                    >
+                  </label>
+                </div>
+                <div class="subpanel policy-row">
+                  <div>
+                    <p class="label">Tailnet policy</p>
+                    <pre id="policy-preview"></pre>
+                  </div>
+                  <button id="copy-policy" type="button">Copy</button>
+                </div>
+              </div>
+            </details>
+          </section>
+
+        </div>
+      </main>
+
+      <footer class="site-footer">
+        <span class="made-by" aria-label="Created with care by Alex Kretzschmar">
+          Created with
+          <svg class="footer-heart" aria-hidden="true" viewBox="0 0 32 32">
+            <path d="M16 25.2 7.3 16.8c-2.1-2-2.1-5.3-.1-7.3 1.9-1.9 5-1.9 6.9 0L16 11.4l1.9-1.9c1.9-1.9 5-1.9 6.9 0 2 2 2 5.3-.1 7.3L16 25.2Z"></path>
+          </svg>
+          by Alex Kretzschmar
+        </span>
+        <a href="https://github.com/ironicbadger" target="_blank" rel="noopener noreferrer">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.21.68-.48v-1.69c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.1-1.45-1.1-1.45-.9-.62.07-.61.07-.61 1 .07 1.52 1.03 1.52 1.03.89 1.52 2.34 1.08 2.91.83.09-.64.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.58 9.58 0 0 1 12 6.04c.85 0 1.7.11 2.5.33 1.9-1.29 2.74-1.02 2.74-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"></path>
+          </svg>
+          ironicbadger
+        </a>
+        <a href="https://alex.ktz.me" target="_blank" rel="noopener noreferrer">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.93 9h-3.09a15.6 15.6 0 0 0-1.3-5.03A8.02 8.02 0 0 1 18.93 11ZM12 4.04c.64.93 1.53 2.87 1.82 6.96H10.18C10.47 6.91 11.36 4.97 12 4.04ZM4.26 13h3.88c.1 1.9.4 3.58.87 4.96A8.03 8.03 0 0 1 4.26 13Zm3.88-2H4.26a8.03 8.03 0 0 1 4.75-4.96A17.08 17.08 0 0 0 8.14 11ZM12 19.96c-.64-.93-1.53-2.87-1.82-6.96h3.64c-.29 4.09-1.18 6.03-1.82 6.96Zm3-2c.46-1.38.76-3.06.86-4.96h3.88A8.03 8.03 0 0 1 15 17.96Z"></path>
+          </svg>
+          alex.ktz.me
+        </a>
+        <span class="footer-separator" aria-hidden="true">|</span>
+        <span>Not an official Tailscale app</span>
+      </footer>
+    </div>
+  </body>
+</html>
