@@ -1,5 +1,7 @@
 # Tailscale Server Builder
 
+> This is not an official Tailscale project.
+
 Generate Flatcar Ignition userdata for a small Tailscale exit node or subnet router. No build step, no provider API keys, or no local tooling required.
 
 [Open the app](https://ironicbadger.github.io/flatcar-ignition-generator-tailscale/)
