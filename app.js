@@ -41,6 +41,16 @@ const providers = {
       "Paste the copied Ignition JSON into the User Data field.",
     ],
   },
+  netcup: {
+    imageText: "Select a standard image — Ubuntu 24.04 recommended.",
+    links: [
+      ["Open netcup CCP", "https://www.customercontrolpanel.de/"],
+    ],
+    steps: [
+      "Create a new VPS and select a standard image (Ubuntu 24.04 recommended).",
+      "Paste the generated script into the Script field during VPS creation.",
+    ],
+  },
 };
 
 const form = document.querySelector("#config-form");
@@ -311,6 +321,38 @@ function buildPolicy(config) {
   return JSON.stringify(policy, null, 2);
 }
 
+function buildNetcupScript(config) {
+  const extraArgs = [];
+  if (config.exitNode) extraArgs.push("--advertise-exit-node");
+  if (config.subnetRouter && config.subnetRoutes.length) {
+    extraArgs.push(`--advertise-routes=${config.subnetRoutes.join(",")}`);
+  }
+  const tailscaleUpArgs = [
+    `--auth-key=${config.authKey}`,
+    `--hostname=${config.hostname}`,
+    "--accept-routes=false",
+    ...extraArgs,
+  ].join(" ");
+
+  return `#!/bin/bash
+set -euo pipefail
+
+# Enable IP forwarding
+cat > /etc/sysctl.d/99-tailscale.conf << 'EOF'
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv6.conf.default.forwarding = 1
+EOF
+sysctl -p /etc/sysctl.d/99-tailscale.conf
+
+# Install Tailscale
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Bring up Tailscale
+tailscale up ${tailscaleUpArgs}
+`;
+}
+
 function readConfig() {
   const routes = splitRoutes(subnetRoutes.value);
   const authKeyValue = authKey.value.trim();
@@ -484,10 +526,21 @@ function render() {
   const config = readConfig();
   updateConditionalFields(config);
   const ignition = buildIgnition(config);
-  currentIgnition = JSON.stringify(ignition, null, 2);
   currentPolicy = buildPolicy(config);
 
-  ignitionPreview.innerHTML = highlightJson(redactIgnition(ignition, config));
+  if (config.provider === "netcup") {
+    currentIgnition = buildNetcupScript(config);
+    const previewScript = buildNetcupScript({ ...config, authKey: config.authKey ? REDACTED_AUTH_KEY : "" });
+    ignitionPreview.innerHTML = escapeHtml(previewScript);
+    copyIgnitionButton.textContent = "Copy Script";
+    downloadButton.textContent = "Download .sh";
+  } else {
+    currentIgnition = JSON.stringify(ignition, null, 2);
+    ignitionPreview.innerHTML = highlightJson(redactIgnition(ignition, config));
+    copyIgnitionButton.textContent = "Copy Ignition";
+    downloadButton.textContent = "Download .ign";
+  }
+
   policyPreview.textContent = currentPolicy;
   ignitionSize.textContent = `${Math.max(1, Math.round(currentIgnition.length / 1024))} KB`;
 
@@ -522,10 +575,15 @@ function downloadIgnition() {
   const config = readConfig();
   if (!readinessState(config).ready) return;
 
-  const blob = new Blob([currentIgnition], { type: "application/json" });
+  const isNetcup = config.provider === "netcup";
+  const blob = new Blob([currentIgnition], {
+    type: isNetcup ? "text/x-shellscript" : "application/json",
+  });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `${config.hostname}-${config.provider}.ign`;
+  link.download = isNetcup
+    ? `${config.hostname}-netcup.sh`
+    : `${config.hostname}-${config.provider}.ign`;
   document.body.append(link);
   link.click();
   URL.revokeObjectURL(link.href);

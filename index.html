@@ -70,6 +70,7 @@
                   <option value="vultr" selected>Vultr</option>
                   <option value="digitalocean">DigitalOcean</option>
                   <option value="hetzner">Hetzner</option>
+                  <option value="netcup">netcup</option>
                 </select>
               </fieldset>
 
@@ -126,6 +127,10 @@
                   <div>
                     <dt>Hetzner</dt>
                     <dd>Often cost-effective, especially in Europe, but setup is more involved and starts with a snapshot.</dd>
+                  </div>
+                  <div>
+                    <dt>netcup</dt>
+                    <dd>Use a standard preset image (Ubuntu 24.04 recommended) — no Flatcar needed. The generated script installs Tailscale natively via post-install script.</dd>
                   </div>
                 </dl>
               </details>
